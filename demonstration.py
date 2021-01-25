@@ -13,15 +13,28 @@ import iopgdstoolkit as iop
 # ===========================================================================================
 
 
+def generate_layout_cell(size=50, line_width=10):
+    cell = Cell('templateMembraneAlign, size = {}, line_width = {}'.format(size, line_width))
+
+    # ring, ring_location = iop.port_ring(15, 10, offset=(100, 200))
+    corners = [-30, -10, -30, 10, 30, 10, 30, -10]
+    shape, shape_port = iop.port_shape_cartesian(corners, rotate=np.pi*0,
+                                                 port=Port((-100, 250), 0, 1), offset=(100, 200))
+
+
+
+    # ============================================
+    cell.add_to_layer(1, shape)
+
+    return cell
+
+
 # ===========================================================================================
 # ===========================================================================================
 one_or_layout = 0
 if one_or_layout == 0:
     cell = generate_layout_cell()
     cell.show()
-
-# ===========================================================================================
-# ===========================================================================================
 else:
     layout = GridLayout(region_layer_type=None, frame_layer=0,
                         vertical_spacing=40, vertical_alignment=1,

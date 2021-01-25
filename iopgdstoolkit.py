@@ -5,6 +5,7 @@ from shapely.geometry import Polygon
 from gdshelpers.parts.waveguide import Waveguide
 from gdshelpers.parts.port import Port
 from gdshelpers.parts.text import Text
+from shapely.geometry import Point
 
 
 def cart2pol(x, y):
@@ -19,7 +20,7 @@ def pol2cart(rho, phi):
     return x, y
 
 
-def port_shape(radii, port=Port((0, 0), 0, 1), coord=(0, 0), sides=4, radial_type='outer', rotate=0*pi):
+def port_shape_polar(radii, port=Port((0, 0), 0, 1), offset=(0, 0), sides=4, radial_type='to_edge', rotate=0 * pi):
     origin = port.origin
     angle = 2*pi/sides
     theta = pi/sides + rotate
@@ -31,23 +32,65 @@ def port_shape(radii, port=Port((0, 0), 0, 1), coord=(0, 0), sides=4, radial_typ
     q, r = divmod(sides, np.size(radii))
     radii = q * radii + radii[:r]
 
-    if radial_type == 'inner':
+    if radial_type == 'to_corner':
         rho = radii
-    elif radial_type == 'outer':
+    elif radial_type == 'to_edge':
         # rho = np.sqrt(np.multiply(np.square(radii), 2))
         rho = np.divide(radii, np.cos(pi/sides))
-    points = np.add(pol2cart(rho[0], theta), coord+origin)
+    points = np.add(pol2cart(rho[0], theta), offset+origin)
 
     for num in range(1, sides):
         theta += angle
-        temp = np.add(pol2cart(rho[num], theta), coord+origin)
+        temp = np.add(pol2cart(rho[num], theta), offset+origin)
         points = np.append(points, temp)
 
     points = np.reshape(points, (-1, 2))
     shape = Polygon(points)
-    shape_port = Port((coord+origin), port.angle, port.width)
+    shape_port = Port((offset+origin), port.angle, port.width)
 
     return shape, shape_port
+
+
+def port_shape_cartesian(coordinate_list, port=Port((0, 0), 0, 1), offset=(0, 0), rotate=0 * pi):
+    points = np.reshape(coordinate_list, (-1, 2))
+    origin = port.origin
+
+    polar_points = points*0.0  # make sure its a list of floats, else shapes get messed up
+    port_points = points*0.0
+
+    if rotate != 0 * pi:
+        for num in range(0, len(points)):
+            polar_points[num, 0], polar_points[num, 1] = cart2pol(points[num, 0], points[num, 1])
+            port_points[num, 0], port_points[num, 1] = pol2cart(polar_points[num, 0],
+                                                                polar_points[num, 1] + rotate) + origin + offset
+
+    else:
+        for num in range(0, len(points)):
+            port_points[num] = points[num] + origin + offset
+
+    shape = Polygon(port_points)
+    shape_port = Port((offset+origin), port.angle, port.width)
+
+    return shape, shape_port
+
+
+def port_ring(outer_radius, inner_radius, port=Port((0, 0), 0, 1), offset=(0, 0), radial_type='outer_inner'):
+    origin = port.origin
+    if radial_type == 'outer_inner':
+        ring_location = np.add(origin, offset)
+        temp = Point(ring_location)
+        shell = temp.buffer(outer_radius)
+        core = temp.buffer(inner_radius)
+        ring = shell.difference(core)
+    elif radial_type == 'center-span' or radial_type == 'centre-span':
+        print('center-span not yet implemented! defaulted to outer-inner')
+        ring_location = np.add(origin, offset)
+        temp = Point(ring_location)
+        shell = temp.buffer(outer_radius)
+        core = temp.buffer(inner_radius)
+        ring = shell.difference(core)
+
+    return ring, ring_location
 
 
 def grid_marker(size, port=Port((0, 0), 0, 1), coord=(0, 0), num_grid=10, space_grad=(1.5, 1.2),
@@ -85,7 +128,7 @@ def grid_marker(size, port=Port((0, 0), 0, 1), coord=(0, 0), num_grid=10, space_
 
 
 def alignment_overlay(shape, radii=60, sides=4, buffer=-1, coord=(0, 0), rotate=0, port=Port((0, 0), 0, 1)):
-    al_overlay, al_overlay_port = port_shape(radii, radial_type='outer', coord=coord, port=port, sides=sides, rotate=rotate)
+    al_overlay, al_overlay_port = port_shape_polar(radii, radial_type='outer', offset=coord, port=port, sides=sides, rotate=rotate)
     al_overlay = al_overlay.difference(shape)
     al_overlay = al_overlay.buffer(buffer)
     return al_overlay
