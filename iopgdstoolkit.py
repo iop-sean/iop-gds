@@ -315,11 +315,14 @@ def layout_marker(shape_cell_port_or_bounds, offset=(120, 120), size=100, radii=
 
     if type(radii) == tuple or type(radii) == list:
         # print(radii)
-        temp, temp_position = port_shape_polar(radii, offset=cell_corners[0], sides=sides)
+        temp, temp_port = port_shape_polar(radii, offset=cell_corners[0], sides=sides)
+        temp_position = temp_port.origin
+        temp_overlay = alignment_overlay(temp, radii=size, sides=sides, offset=cell_corners[0])
     else:
         temp, temp_position = grid_marker(size, offset=cell_corners[0])
+        temp_overlay = alignment_overlay(temp, offset=cell_corners[0])
 
-    temp_overlay = alignment_overlay(temp, offset=cell_corners[0])
+
     marker = temp
     marker_list = [temp_position]
     al_overlay = temp_overlay
@@ -327,11 +330,14 @@ def layout_marker(shape_cell_port_or_bounds, offset=(120, 120), size=100, radii=
     for mm in range(1, np.size(cell_corners, 0)):
 
         if type(radii) == tuple or type(radii) == list:
-            temp, temp_position = port_shape_polar(radii, offset=cell_corners[mm], sides=sides)
+            temp, temp_port = port_shape_polar(radii, offset=cell_corners[mm], sides=sides)
+            temp_position = temp_port.origin
+            temp_overlay = alignment_overlay(temp, radii=size, sides=sides, offset=cell_corners[mm])
         else:
             temp, temp_position = grid_marker(size, offset=cell_corners[mm])
+            temp_overlay = alignment_overlay(temp, offset=cell_corners[mm])
 
-        temp_overlay = alignment_overlay(temp, offset=cell_corners[mm])
+
 
         marker = marker.union(temp)
         marker_list.append(temp_position)
@@ -363,14 +369,16 @@ def distance_from_port(coordinate_list, port=Port((0, 0), 0, 1), offset=(0, 0)):
     for num in range(1, len(coordinate_list)):
         port_distances = np.append(port_distances, coordinate_list[num] - origin - offset)
 
-    port_distances = np.reshape(port_distances, (-1, 2))
+    if len(port_distances) > 2:
+        port_distances = np.reshape(port_distances, (-1, 2))
+
     return port_distances
 
 
 def label_local_positions(global_position, local_position, offset=(0, -70), size=10):
     """
     creates a text label under a marker that denotes the distance away from a particular port location (local position).
-    Supports lists for global and local positions, like that given in iop.layout_marker and iop.port_distances.
+    Supports lists for global and local positions, like that given in iop.layout_marker and iop.distance_from_port.
     list of distances should be of same dimensions. labeled with 'l' for local
 
     :param global_position: coordinate or coordinate list of positions relative to the entire design.
@@ -407,7 +415,7 @@ def label_local_positions(global_position, local_position, offset=(0, -70), size
 def label_global_positions(global_position, offset=(0, -90), size=10):
     """
     creates a text label under a marker that denotes its position based off the whole chip design (global position).
-    Supports lists for global and local positions, like that given in iop.layout_marker and iop.port_distances.
+    Supports lists for global and local positions, like that given in iop.layout_marker and iop.distance_from_port.
     list of distances should be of same dimensions. labelled with 'g' for global
 
     :param global_position: coordinate or coordinate list of positions relative to the entire design.
